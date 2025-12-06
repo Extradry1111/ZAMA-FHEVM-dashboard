@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZAMA FHEVM | Cosmic Protocol</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --zama-yellow: #FFE600;
+            --zama-dark: #050505;
+            --zama-panel: rgba(10, 10, 10, 0.85);
+            --glow: 0 0 20px rgba(255, 230, 0, 0.4);
+            --glow-strong: 0 0 35px rgba(255, 230, 0, 0.8);
+            --grid-color: rgba(255, 230, 0, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+        body {
+            background-color: var(--zama-dark);
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            perspective: 1000px;
+        }
+
+        /* --- CRT SCANLINE EFFECT --- */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        /* --- 3D BACKGROUND --- */
+        #canvas-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            filter: blur(1px);
+        }
+
+        /* --- INTRO SEQUENCE (RETRO PC BOOT) --- */
+        #intro-layer {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1.5s ease;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .boot-screen {
+            width: 90%;
+            max-width: 800px;
+            background: #0a0a0a;
+            border: 3px solid var(--zama-yellow);
+            box-shadow: 0 0 40px rgba(255,230,0,0.3);
+            padding: 30px;
+            text-align: center;
+        }
+
+        .boot-header {
+            color: var(--zama-yellow);
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: var(--glow);
+            letter-spacing: 3px;
+        }
+
+        .boot-lines {
+            text-align: left;
+            margin: 20px 0;
+            min-height: 200px;
+            border: 1px solid #333;
+            padding: 15px;
+            background: rgba(0,0,0,0.5);
+            overflow-y: auto;
+            max-height: 250px;
+        }
+
+        .boot-line {
+            color: var(--zama-yellow);
+            margin: 5px 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            font-weight: 500;
+            opacity: 0;
+            animation: typeIn 0.3s ease forwards;
+        }
+
+        .boot-line:nth-child(1) { animation-delay: 0.2s; }
+        .boot-line:nth-child(2) { animation-delay: 0.6s; }
+        .boot-line:nth-child(3) { animation-delay: 1.0s; }
+        .boot-line:nth-child(4) { animation-delay: 1.4s; }
+        .boot-line:nth-child(5) { animation-delay: 1.8s; }
+        .boot-line:nth-child(6) { animation-delay: 2.2s; }
+        .boot-line:nth-child(7) { animation-delay: 2.6s; }
+        .boot-line:nth-child(8) { animation-delay: 3.0s; }
+
+        @keyframes typeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .boot-progress {
+            margin: 25px 0;
+        }
+
+        .progress-label {
+            color: #888;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255,230,0,0.1);
+            border: 1px solid var(--zama-yellow);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--zama-yellow), #FFD700);
+            width: 0%;
+            animation: fillBar 3.5s ease forwards;
+            box-shadow: 0 0 10px rgba(255,230,0,0.5);
+        }
+
+        @keyframes fillBar {
+            0% { width: 0%; }
+            50% { width: 60%; }
+            85% { width: 95%; }
+            100% { width: 100%; }
+        }
+
+        .boot-footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #555;
+            animation: pulse 1s infinite 3.5s;
+        }
+
+        @keyframes pulse { 50% { opacity: 0.5; } }
+
+        /* --- MAIN UI --- */
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            padding: 40px;
+            opacity: 0;
+            transform: scale(1.1);
+            transition: all 1s cubic-bezier(0.19, 1, 0.22, 1);
+            display: grid;
+            grid-template-columns: 350px 1fr 300px;
+            grid-template-rows: auto 1fr auto;
+            gap: 30px;
+            pointer-events: none;
+        }
+
+        .panel {
+            background: var(--zama-panel);
+            border: 1px solid rgba(255, 230, 0, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            min-height: 0;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--zama-yellow), transparent);
+            opacity: 0.5;
+        }
+
+        h2 {
+            font-family: 'Space Mono', monospace;
+            color: var(--zama-yellow);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,230,0,0.1);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .metric {
+            font-size: 3rem;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        /* --- INTERACTIVE INPUTS --- */
+        .fhe-input-group {
+            position: relative;
+            margin-top: auto;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            border-left: 4px solid var(--zama-yellow);
+            color: var(--zama-yellow);
+            padding: 15px;
+            font-family: 'Space Mono';
+            font-size: 1.2rem;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus { background: rgba(255, 230, 0, 0.05); box-shadow: var(--glow); }
+
+        button.action-btn {
+            width: 100%;
+            margin-top: 15px;
+            background: var(--zama-yellow);
+            color: black;
+            border: none;
+            padding: 15px;
+            font-family: 'Rajdhani';
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);
+        }
+        
+        button.action-btn:hover { filter: brightness(1.2); box-shadow: var(--glow); }
+
+        /* --- TERMINAL (SCROLLABLE) --- */
+        #terminal {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #333;
+            margin-bottom: 15px;
+            padding-right: 10px;
+        }
+
+        #terminal::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #terminal::-webkit-scrollbar-track {
+            background: rgba(255,230,0,0.05);
+        }
+
+        #terminal::-webkit-scrollbar-thumb {
+            background: var(--zama-yellow);
+            border-radius: 4px;
+        }
+
+        /* --- PROCESSING OVERLAY --- */
+        #proc-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .loader-ring {
+            width: 150px; height: 150px;
+            border: 4px solid rgba(255,230,0,0.1);
+            border-top: 4px solid var(--zama-yellow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            box-shadow: var(--glow);
+        }
+
+        .proc-text {
+            margin-top: 30px;
+            font-family: 'Space Mono';
+            color: var(--zama-yellow);
+            font-size: 1.2rem;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* TERMINAL */
+        .terminal-line { margin-bottom: 4px; font-family: 'Space Mono'; font-size: 0.8rem; opacity: 0.7; }
+        .terminal-line span { color: var(--zama-yellow); }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <canvas id="canvas-bg"></canvas>
+
+    <!-- INTRO SCREEN (RETRO PC BOOT) -->
+    <div id="intro-layer">
+        <div class="boot-screen">
+            <div class="boot-header">ZAMA FHEVM SYSTEM v0.3</div>
+            
+            <div class="boot-lines" id="boot-log">
+                <div class="boot-line">> INITIALIZING CORE SYSTEMS...</div>
+                <div class="boot-line">> LOADING TFHE RUNTIME LIBRARY...</div>
+                <div class="boot-line">> CONFIGURING ENCRYPTION PROTOCOLS...</div>
+                <div class="boot-line">> ESTABLISHING SECURE CHANNELS...</div>
+                <div class="boot-line">> SYNCING BLOCKCHAIN STATE...</div>
+                <div class="boot-line">> DEPLOYING CONFIDENTIAL CONTRACTS...</div>
+                <div class="boot-line">> INITIALIZING AUDIO ENGINE...</div>
+                <div class="boot-line" id="ready-line">> SYSTEM READY. PRESS SPACEBAR TO CONTINUE...</div>
+            </div>
+
+            <div class="boot-progress">
+                <div class="progress-label">SYSTEM BOOT PROGRESS</div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="boot-footer" id="boot-hint">&gt; WAITING FOR USER INPUT...</div>
+        </div>
+    </div>
+
+    <!-- PROCESSING OVERLAY -->
+    <div id="proc-overlay">
+        <div class="loader-ring"></div>
+        <div class="proc-text" id="proc-text">ENCRYPTING DATA PACKET...</div>
+        <div style="font-family: 'Space Mono'; font-size: 0.8rem; color: #555; margin-top: 10px;" id="proc-sub">Generating Zero-Knowledge Proof</div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="ui-layer">
+        
+        <!-- Header -->
+        <header style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size: 2rem; font-weight: bold;">FHEVM <span style="color:var(--zama-yellow)">DASHBOARD</span></div>
+            <div style="display:flex; gap: 20px; align-items:center;">
+                <div style="text-align:right;">
+                    <div style="font-size:0.8rem; color:#666">NETWORK</div>
+                    <div style="color:var(--zama-yellow)">INCO TESTNET</div>
+                </div>
+                <button class="start-btn" style="margin:0; padding: 10px 20px; font-size: 0.9rem; border: 2px solid var(--zama-yellow); background:transparent; color:var(--zama-yellow); font-family:'Space Mono'; cursor:pointer; text-transform:uppercase; letter-spacing:2px;" id="wallet-btn">CONNECT WALLET</button>
+            </div>
+        </header>
+
+        <!-- Left: Smart Contract State -->
+        <div class="panel">
+            <h2>Contract State <span>SECURE</span></h2>
+            <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                <div style="font-size:0.8rem; color:#666; margin-bottom:10px;">ENCRYPTED BALANCE</div>
+                <div class="metric" id="enc-balance-display">????</div>
+                <div style="font-size:0.8rem; color:var(--zama-yellow); margin-top:5px;">euint64</div>
+            </div>
+            <div style="margin-top: 20px; font-size: 0.8rem; line-height: 1.6; color:#888;">
+                Data stored on-chain is fully encrypted using FHE. Nodes process transactions without decryption.
+            </div>
+        </div>
+
+        <!-- Center: Action Deck -->
+        <div class="panel" style="border-color: var(--zama-yellow);">
+            <h2>Operation Deck <span>ACTIVE</span></h2>
+            
+            <!-- Tabs -->
+            <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                <div style="padding: 5px 10px; background: rgba(255,230,0,0.1); color: var(--zama-yellow); border: 1px solid var(--zama-yellow);">STORE</div>
+                <div style="padding: 5px 10px; border: 1px solid #333; color: #555;">TRANSFER</div>
+            </div>
+
+            <div style="height: 200px; border: 1px dashed #333; display:flex; align-items:center; justify-content:center; margin-bottom:20px; position:relative; overflow:hidden;">
+                <div id="visualizer-bar" style="position:absolute; bottom:0; left:0; width:100%; height:2px; background:var(--zama-yellow); box-shadow:var(--glow);"></div>
+                <div style="font-family:'Space Mono'; color:#333; font-size:4rem; opacity:0.2;">FHE</div>
+            </div>
+
+            <div class="fhe-input-group">
+                <label style="display:block; font-size:0.8rem; margin-bottom:5px; color:#888;">INPUT INTEGER (SECRET)</label>
+                <input type="number" id="secret-input" placeholder="0">
+                <button class="action-btn" onclick="runEncryption()">ENCRYPT & SUBMIT</button>
+            </div>
+        </div>
+
+        <!-- Right: Logs & Decrypt -->
+        <div class="panel">
+            <h2>System Log <span>LIVE</span></h2>
+            <div id="terminal">
+                <div class="terminal-line"><span>></span> System Ready...</div>
+            </div>
+            
+            <button class="start-btn" style="width:100%; font-size:0.9rem; margin:0; border:2px solid var(--zama-yellow); background:transparent; color:var(--zama-yellow); font-family:'Space Mono'; cursor:pointer; text-transform:uppercase; letter-spacing:2px;" onclick="runDecryption()">RE-ENCRYPT & VIEW</button>
+        </div>
+
+    </div>
+
+    <script>
+        /* 
+           =================================================================
+           AUDIO ENGINE: PROCEDURAL DARK SYNTHWAVE
+           =================================================================
+        */
+        const AudioEngine = {
+            ctx: null,
+            oscillators: [],
+            isMuted: false,
+
+            init() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.createDrone();
+                this.createBassline();
+            },
+
+            createDrone() {
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+
+                osc1.type = 'sawtooth';
+                osc1.frequency.value = 50;
+                osc2.type = 'square';
+                osc2.frequency.value = 50.5;
+
+                filter.type = 'lowpass';
+                filter.frequency.value = 200;
+                filter.Q.value = 1;
+
+                gain.gain.value = 0.1;
+
+                osc1.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc1.start();
+                osc2.start();
+                
+                const lfo = this.ctx.createOscillator();
+                const lfoGain = this.ctx.createGain();
+                lfo.frequency.value = 0.1;
+                lfoGain.gain.value = 100;
+                lfo.connect(lfoGain);
+                lfoGain.connect(filter.frequency);
+                lfo.start();
+            },
+
+            createBassline() {
+                const notes = [100, 200, 150, 100];
+                let noteIdx = 0;
+                
+                setInterval(() => {
+                    if(this.ctx.state === 'suspended') return;
+                    
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.frequency.value = notes[noteIdx];
+                    noteIdx = (noteIdx + 1) % notes.length;
+                    
+                    osc.type = 'triangle';
+                    
+                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.5);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.5);
+                }, 500);
+            },
+            
+            playSFX(type) {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                if(type === 'click') {
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                }
+                
+                if(type === 'process') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                }
+                
+                if(type === 'success') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 1);
+                }
+            }
+        };
+
+        /* 
+           =================================================================
+           VISUAL ENGINE: 3D GRID & PARTICLES
+           =================================================================
+        */
+        const canvas = document.getElementById('canvas-bg');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let time = 0;
+
+        function drawGrid() {
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(255, 230, 0, 0.15)';
+            ctx.lineWidth = 1;
+            
+            const horizon = height * 0.4;
+
+            for (let i = -1000; i < 1000; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(width/2 + i, height);
+                ctx.lineTo(width/2 + (i/4), horizon);
+                ctx.stroke();
+            }
+
+            const speed = (time * 2) % 50;
+            for (let i = 0; i < height; i += 50) {
+                let y = height - i + speed;
+                if (y > height) y -= height;
+                
+                let scale = (y - horizon) / (height - horizon);
+                if(scale < 0) continue;
+
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.globalAlpha = scale; 
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.fillStyle = '#FFE600';
+            for(let k=0; k<20; k++) {
+                let px = (Math.sin(time * 0.01 + k) * width/2) + width/2;
+                let py = (Math.cos(time * 0.02 + k) * height/2) + height/2;
+                ctx.globalAlpha = (Math.sin(time * 0.05 + k) + 1) / 2;
+                ctx.beginPath();
+                ctx.arc(px, py, Math.random() * 3, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            time++;
+            requestAnimationFrame(drawGrid);
+        }
+        drawGrid();
+
+        /* 
+           =================================================================
+           LOGIC & UI INTERACTION
+           =================================================================
+        */
+        
+        function log(msg) {
+            const t = document.getElementById('terminal');
+            t.innerHTML += `<div class="terminal-line"><span>></span> ${msg}</div>`;
+            t.scrollTop = t.scrollHeight;
+        }
+
+        // INTRO: Wait for spacebar or click
+        let bootComplete = false;
+        document.addEventListener('keydown', (e) => {
+            if(e.code === 'Space' && !bootComplete) {
+                completeBootSequence();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if(!bootComplete && e.target.closest('#intro-layer')) {
+                completeBootSequence();
+            }
+        });
+
+        function completeBootSequence() {
+            if(bootComplete) return;
+            bootComplete = true;
+
+            // Start Audio
+            AudioEngine.init();
+            AudioEngine.playSFX('success');
+
+            // Hide Intro
+            document.getElementById('intro-layer').style.opacity = 0;
+            setTimeout(() => {
+                document.getElementById('intro-layer').style.display = 'none';
+            }, 1500);
+
+            // Show UI
+            setTimeout(() => {
+                const ui = document.getElementById('ui-layer');
+                ui.style.opacity = 1;
+                ui.style.transform = 'scale(1)';
+                ui.style.pointerEvents = 'all';
+                log("FHEVM Runtime Environment Loaded.");
+                log("Waiting for wallet connection...");
+            }, 500);
+        }
+
+        // WALLET CONNECTION
+        let walletConnected = false;
+        document.getElementById('wallet-btn').addEventListener('click', (e) => {
+            AudioEngine.playSFX('click');
+            if(walletConnected) return;
+            
+            e.target.innerText = "CONNECTING...";
+            setTimeout(() => {
+                walletConnected = true;
+                e.target.innerText = "0x71...A9B2";
+                e.target.style.borderColor = "#00FF00";
+                e.target.style.color = "#00FF00";
+                log("Wallet Connected: 0x71C...A9B2");
+                log("TFHE Library Initialized.");
+                AudioEngine.playSFX('success');
+            }, 1200);
+        });
+
+        // ENCRYPTION PROCESS
+        let storedValue = 0;
+
+        function runEncryption() {
+            AudioEngine.playSFX('click');
+            const val = document.getElementById('secret-input').value;
+            
+            if(!walletConnected) { alert("CONNECT WALLET FIRST"); return; }
+            if(val === "") return;
+
+            const overlay = document.getElementById('proc-overlay');
+            const sub = document.getElementById('proc-sub');
+            const txt = document.getElementById('proc-text');
+            
+            overlay.style.display = 'flex';
+            txt.innerText = "ENCRYPTING INPUT";
+            
+            setTimeout(() => { sub.innerText = "Generating Salt..."; AudioEngine.playSFX('process'); }, 500);
+            setTimeout(() => { sub.innerText = "Computing ZK Proof (Groth16)..."; AudioEngine.playSFX('process'); }, 1500);
+            setTimeout(() => { sub.innerText = "Broadcasting Transaction..."; AudioEngine.playSFX('process'); }, 2500);
+
+            setTimeout(() => {
+                storedValue = parseInt(val);
+                overlay.style.display = 'none';
+                document.getElementById('secret-input').value = "";
+                log(`Transaction Confirmed. Encrypted Integer stored.`);
+                
+                const vis = document.getElementById('visualizer-bar');
+                vis.style.height = '50%';
+                AudioEngine.playSFX('success');
+            }, 3500);
+        }
+
+        // DECRYPTION PROCESS
+        function runDecryption() {
+            AudioEngine.playSFX('click');
+            if(!walletConnected) { alert("CONNECT WALLET FIRST"); return; }
+            
+            log("Requesting Re-encryption signature...");
+            
+            const metric = document.getElementById('enc-balance-display');
+            let count = 0;
+            const hackInterval = setInterval(() => {
+                metric.innerText = Math.floor(Math.random() * 999999);
+                count++;
+                AudioEngine.playSFX('process');
+                if(count > 15) {
+                    clearInterval(hackInterval);
+                    metric.innerText = storedValue;
+                    metric.style.color = "#00FF00";
+                    metric.style.textShadow = "0 0 20px #00FF00";
+                    log("Decryption Successful. View generated.");
+                    AudioEngine.playSFX('success');
+                }
+            }, 100);
+        }
+
+        // Hover sounds
+        document.querySelectorAll('button').forEach(b => {
+            b.addEventListener('mouseenter', () => {
+                if(AudioEngine.ctx) {
+                    const o = AudioEngine.ctx.createOscillator();
+                    const g = AudioEngine.ctx.createGain();
+                    o.connect(g);
+                    g.connect(AudioEngine.ctx.destination);
+                    o.frequency.value = 1200;
+                    g.gain.value = 0.01;
+                    o.start();
+                    o.stop(AudioEngine.ctx.currentTime + 0.02);
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
