@@ -29,7 +29,7 @@
             perspective: 1000px;
         }
 
-        /* --- CRT SCANLINE EFFECT --- */
+
         .scanlines {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -40,7 +40,7 @@
             opacity: 0.3;
         }
 
-        /* --- 3D BACKGROUND --- */
+
         #canvas-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -48,7 +48,7 @@
             filter: blur(1px);
         }
 
-        /* --- INTRO SEQUENCE (RETRO PC BOOT) --- */
+   
         #intro-layer {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -160,7 +160,7 @@
 
         @keyframes pulse { 50% { opacity: 0.5; } }
 
-        /* --- MAIN UI --- */
+
         #ui-layer {
             position: relative;
             z-index: 10;
@@ -218,7 +218,7 @@
             text-shadow: 0 0 10px rgba(255,255,255,0.3);
         }
 
-        /* --- INTERACTIVE INPUTS --- */
+ 
         .fhe-input-group {
             position: relative;
             margin-top: auto;
@@ -256,7 +256,7 @@
         
         button.action-btn:hover { filter: brightness(1.2); box-shadow: var(--glow); }
 
-        /* --- TERMINAL (SCROLLABLE) --- */
+
         #terminal {
             flex: 1;
             overflow-y: auto;
@@ -279,7 +279,7 @@
             border-radius: 4px;
         }
 
-        /* --- PROCESSING OVERLAY --- */
+
         #proc-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -310,7 +310,7 @@
 
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* TERMINAL */
+
         .terminal-line { margin-bottom: 4px; font-family: 'Space Mono'; font-size: 0.8rem; opacity: 0.7; }
         .terminal-line span { color: var(--zama-yellow); }
 
@@ -321,7 +321,6 @@
     <div class="scanlines"></div>
     <canvas id="canvas-bg"></canvas>
 
-    <!-- INTRO SCREEN (RETRO PC BOOT) -->
     <div id="intro-layer">
         <div class="boot-screen">
             <div class="boot-header">ZAMA FHEVM SYSTEM v0.3</div>
@@ -348,17 +347,17 @@
         </div>
     </div>
 
-    <!-- PROCESSING OVERLAY -->
+
     <div id="proc-overlay">
         <div class="loader-ring"></div>
         <div class="proc-text" id="proc-text">ENCRYPTING DATA PACKET...</div>
         <div style="font-family: 'Space Mono'; font-size: 0.8rem; color: #555; margin-top: 10px;" id="proc-sub">Generating Zero-Knowledge Proof</div>
     </div>
 
-    <!-- MAIN DASHBOARD -->
+
     <div id="ui-layer">
         
-        <!-- Header -->
+
         <header style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center;">
             <div style="font-size: 2rem; font-weight: bold;">FHEVM <span style="color:var(--zama-yellow)">DASHBOARD</span></div>
             <div style="display:flex; gap: 20px; align-items:center;">
@@ -370,7 +369,7 @@
             </div>
         </header>
 
-        <!-- Left: Smart Contract State -->
+
         <div class="panel">
             <h2>Contract State <span>SECURE</span></h2>
             <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
@@ -383,11 +382,11 @@
             </div>
         </div>
 
-        <!-- Center: Action Deck -->
+
         <div class="panel" style="border-color: var(--zama-yellow);">
             <h2>Operation Deck <span>ACTIVE</span></h2>
             
-            <!-- Tabs -->
+
             <div style="display:flex; gap:10px; margin-bottom: 20px;">
                 <div style="padding: 5px 10px; background: rgba(255,230,0,0.1); color: var(--zama-yellow); border: 1px solid var(--zama-yellow);">STORE</div>
                 <div style="padding: 5px 10px; border: 1px solid #333; color: #555;">TRANSFER</div>
@@ -405,7 +404,7 @@
             </div>
         </div>
 
-        <!-- Right: Logs & Decrypt -->
+
         <div class="panel">
             <h2>System Log <span>LIVE</span></h2>
             <div id="terminal">
@@ -418,11 +417,7 @@
     </div>
 
     <script>
-        /* 
-           =================================================================
-           AUDIO ENGINE: PROCEDURAL DARK SYNTHWAVE
-           =================================================================
-        */
+ 
         const AudioEngine = {
             ctx: null,
             oscillators: [],
@@ -530,11 +525,7 @@
             }
         };
 
-        /* 
-           =================================================================
-           VISUAL ENGINE: 3D GRID & PARTICLES
-           =================================================================
-        */
+
         const canvas = document.getElementById('canvas-bg');
         const ctx = canvas.getContext('2d');
         let width, height;
@@ -595,11 +586,6 @@
         }
         drawGrid();
 
-        /* 
-           =================================================================
-           LOGIC & UI INTERACTION
-           =================================================================
-        */
         
         function log(msg) {
             const t = document.getElementById('terminal');
@@ -607,7 +593,7 @@
             t.scrollTop = t.scrollHeight;
         }
 
-        // INTRO: Wait for spacebar or click
+
         let bootComplete = false;
         document.addEventListener('keydown', (e) => {
             if(e.code === 'Space' && !bootComplete) {
@@ -625,17 +611,16 @@
             if(bootComplete) return;
             bootComplete = true;
 
-            // Start Audio
+
             AudioEngine.init();
             AudioEngine.playSFX('success');
 
-            // Hide Intro
             document.getElementById('intro-layer').style.opacity = 0;
             setTimeout(() => {
                 document.getElementById('intro-layer').style.display = 'none';
             }, 1500);
 
-            // Show UI
+
             setTimeout(() => {
                 const ui = document.getElementById('ui-layer');
                 ui.style.opacity = 1;
@@ -646,7 +631,7 @@
             }, 500);
         }
 
-        // WALLET CONNECTION
+
         let walletConnected = false;
         document.getElementById('wallet-btn').addEventListener('click', (e) => {
             AudioEngine.playSFX('click');
@@ -664,7 +649,6 @@
             }, 1200);
         });
 
-        // ENCRYPTION PROCESS
         let storedValue = 0;
 
         function runEncryption() {
@@ -697,7 +681,7 @@
             }, 3500);
         }
 
-        // DECRYPTION PROCESS
+
         function runDecryption() {
             AudioEngine.playSFX('click');
             if(!walletConnected) { alert("CONNECT WALLET FIRST"); return; }
@@ -721,7 +705,6 @@
             }, 100);
         }
 
-        // Hover sounds
         document.querySelectorAll('button').forEach(b => {
             b.addEventListener('mouseenter', () => {
                 if(AudioEngine.ctx) {
